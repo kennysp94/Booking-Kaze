@@ -1,12 +1,6 @@
 "use client";
 
-import React, {
-  createContext,
-  useContext,
-  useState,
-  useCallback,
-  useEffect,
-} from "react";
+import React, { createContext, useContext, useState, useCallback } from "react";
 import { toast } from "sonner";
 import type {
   AvailabilityResponse,
@@ -18,16 +12,7 @@ import { DEFAULT_EVENT_TYPES } from "@/types/event-types";
 import { formatDateFrench, formatTimeFrench } from "@/lib/date-utils";
 import { getAuthToken, getStoredUser, authFetch } from "@/lib/client-auth";
 
-interface User {
-  id: string;
-  email: string;
-  name: string;
-  phone?: string;
-}
-
 interface SchedulingContextType {
-  user: User | null;
-  setUser: (user: User | null) => void;
   selectedService: string | null;
   selectedDate: Date | null;
   selectedTime: string | null;
@@ -42,7 +27,6 @@ interface SchedulingContextType {
   setSelectedTime: (time: string) => void;
   setSelectedEventType: (eventType: EventType) => void;
   fetchAvailability: (date: Date) => Promise<void>;
-  checkForDuplicate: (timeSlot: string, date: Date) => Promise<boolean>; // New method
   createBooking: (details: {
     name: string;
     email: string;
@@ -74,25 +58,11 @@ export function SchedulingProvider({
   const [eventTypes] = useState<EventType[]>(DEFAULT_EVENT_TYPES);
   const [isLoading, setIsLoading] = useState(false);
   const [confirmationData, setConfirmationData] = useState<any | null>(null); // Booking confirmation
-  const [user, setUser] = useState<User | null>(null);
-
-  // Check for existing user on mount
-  useEffect(() => {
-    const storedUser = getStoredUser();
-    if (storedUser) {
-      setUser(storedUser);
-    }
-  }, []);
 
   const fetchAvailability = useCallback(
     async (date: Date) => {
       if (!selectedEventType) {
         toast.error("Please select a service first");
-        return;
-      }
-
-      if (!user) {
-        toast.error("Please login to view availability");
         return;
       }
 
@@ -104,7 +74,7 @@ export function SchedulingProvider({
         const endDate = new Date(date);
         endDate.setHours(23, 59, 59, 999);
 
-        // Fetch availability without user-specific data to reduce load
+        // Use authFetch utility to automatically include auth token
         const response = await authFetch(
           `/api/cal/availability?start=${startDate.toISOString()}&end=${endDate.toISOString()}&eventTypeId=${
             selectedEventType.id
@@ -117,7 +87,7 @@ export function SchedulingProvider({
 
         const data: AvailabilityResponse = await response.json();
 
-        // Transform availableSlots considering buffer times and user's existing bookings
+        // Transform availableSlots considering buffer times
         if (!data.availableSlots) {
           setAvailableSlots([]);
           return;
@@ -153,9 +123,6 @@ export function SchedulingProvider({
           });
 
         setAvailableSlots(slots);
-
-        // Note: We don't load user bookings here to reduce load
-        // Duplicate checking will happen at booking time
       } catch (error) {
         console.error("Error fetching availability:", error);
         toast.error(
@@ -166,61 +133,7 @@ export function SchedulingProvider({
         setIsLoading(false);
       }
     },
-    [selectedEventType, bookedSlots, user]
-  );
-
-  // Check for duplicate bookings when user selects a time slot
-  const checkForDuplicate = useCallback(
-    async (timeSlot: string, date: Date): Promise<boolean> => {
-      if (!user || !selectedEventType) {
-        return false;
-      }
-
-      try {
-        // Parse the selected time
-        const [hours, minutes] = timeSlot.split(":").map(Number);
-        const startTime = new Date(date);
-        startTime.setHours(hours, minutes, 0, 0);
-
-        const endTime = new Date(startTime);
-        endTime.setMinutes(startTime.getMinutes() + selectedEventType.length);
-
-        const response = await authFetch("/api/cal/check-duplicate", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            userEmail: user.email,
-            startTime: startTime.toISOString(),
-            endTime: endTime.toISOString(),
-          }),
-        });
-
-        if (response.status === 409) {
-          // Duplicate found
-          const data = await response.json();
-          toast.error(
-            data.message || "You already have a booking at this time"
-          );
-          return true;
-        }
-
-        if (!response.ok) {
-          console.warn("Duplicate check failed:", response.status);
-          // Don't block booking if check fails
-          return false;
-        }
-
-        const data = await response.json();
-        return data.isDuplicate || false;
-      } catch (error) {
-        console.warn("Error checking for duplicates:", error);
-        // Don't block booking if check fails
-        return false;
-      }
-    },
-    [user, selectedEventType]
+    [selectedEventType, bookedSlots]
   );
 
   const createBooking = async (details: {
@@ -232,11 +145,6 @@ export function SchedulingProvider({
   }) => {
     if (!selectedDate || !selectedTime || !selectedEventType) {
       toast.error("Veuillez sélectionner un service et un créneau horaire");
-      return;
-    }
-
-    if (!user) {
-      toast.error("Veuillez vous connecter pour effectuer une réservation");
       return;
     }
 
@@ -259,11 +167,11 @@ export function SchedulingProvider({
         eventTypeSlug: selectedEventType.slug,
         timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         language: "en",
-        user: user.email, // Use authenticated user's email
+        user: "default",
         responses: {
-          email: user.email, // Use authenticated user's email
-          name: user.name, // Use authenticated user's name
-          phone: user.phone || details.phone,
+          email: details.email,
+          name: details.name,
+          phone: details.phone,
           notes: details.notes,
           location: {
             optionValue: "in_person",
@@ -272,16 +180,9 @@ export function SchedulingProvider({
         },
       };
 
-      console.log(
-        "Creating booking with authenticated user data:",
-        bookingData
-      );
+      console.log("Creating booking with data:", bookingData);
 
-      // Authenticated booking request
-      console.log("=== AUTHENTICATED BOOKING ===");
-      console.log("Processing booking request with user authentication");
-
-      // Use authFetch for authenticated booking
+      // Use the authFetch utility from client-auth.ts
       const response = await authFetch("/api/cal/bookings", {
         method: "POST",
         headers: {
@@ -292,6 +193,15 @@ export function SchedulingProvider({
 
       if (!response.ok) {
         const errorData = await response.json();
+
+        // Check for specific authentication error
+        if (response.status === 401) {
+          console.log("Authentication issue detected:", errorData);
+          toast.error(
+            "Authentication required. Please sign in to book appointments."
+          );
+          throw new Error("Authentication required. Please sign in first.");
+        }
 
         // Check for duplicate booking error
         if (errorData.error === "duplicate_booking") {
@@ -309,7 +219,7 @@ export function SchedulingProvider({
       const responseData: BookingResponse = await response.json();
 
       if (responseData.status === "SUCCESS") {
-        toast.success("Booking created successfully!");
+        toast.success("Booking created successfully in Kaze!");
 
         // Mark this time slot as booked
         if (selectedDate && selectedTime) {
@@ -359,8 +269,6 @@ export function SchedulingProvider({
   return (
     <SchedulingContext.Provider
       value={{
-        user,
-        setUser,
         selectedService,
         selectedDate,
         selectedTime,
@@ -375,7 +283,6 @@ export function SchedulingProvider({
         setSelectedTime,
         setSelectedEventType,
         fetchAvailability,
-        checkForDuplicate,
         createBooking,
         resetBookingFlow,
         clearConfirmation,

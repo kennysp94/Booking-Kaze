@@ -19,6 +19,10 @@ yarn-error.log*
 # env files
 .env*
 
+# session files (demo auth storage)
+.sessions.json
+.users.json
+
 # vercel
 .vercel
 

@@ -3,6 +3,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { SchedulingProvider } from "@/providers/scheduling-provider";
 import { Toaster } from "@/components/ui/sonner";
+import FetchPatchLoader from "@/components/fetch-patch-loader";
 
 export const metadata: Metadata = {
   title: "Kaze Scheduling",
@@ -24,6 +25,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <SchedulingProvider>
+            <FetchPatchLoader />
             {children}
             <Toaster />
           </SchedulingProvider>

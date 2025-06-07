@@ -4,7 +4,6 @@ import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
-import { fr } from "date-fns/locale";
 import {
   ChevronLeft,
   ChevronRight,
@@ -16,11 +15,26 @@ import {
   X,
 } from "lucide-react";
 import Image from "next/image";
-import { useState, useEffect, useCallback } from "react";
-import { useScheduling } from "@/providers/scheduling-provider";
+import { useState, useEffect } from "react";
+import { useSched              <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-4">
+                Plages horaires disponibles pour {selectedDate.toLocaleDateString("fr-FR", {
+                  weekday: "long",
+                  day: "numeric",
+                  month: "long",
+                  year: "numeric"
+                })}
+              </h3>from "@/providers/scheduling-provider";
 import BookingForm from "./booking-form";
 import BookingConfirmation from "./booking-confirmation";
 import UserAuth from "./user-auth";
+import AuthStatus from "./auth-status";
+
+interface User {
+  id: string;
+  email: string;
+  name: string;
+  phone?: string;
+}
 
 interface BookingInterfaceProps {
   eventType?: {
@@ -39,8 +53,6 @@ export default function BookingInterface({
   organizer,
 }: BookingInterfaceProps) {
   const {
-    user,
-    setUser,
     selectedDate,
     setSelectedDate,
     selectedTime,
@@ -51,14 +63,13 @@ export default function BookingInterface({
     fetchAvailability,
     confirmationData,
     resetBookingFlow,
-    checkForDuplicate,
   } = useScheduling();
 
   const [timeZone, setTimeZone] = useState<string>("");
   const [mounted, setMounted] = useState(false);
   const [showBookingForm, setShowBookingForm] = useState(false);
   const [showSidebar, setShowSidebar] = useState(true);
-  const [checkingDuplicate, setCheckingDuplicate] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
@@ -156,7 +167,7 @@ export default function BookingInterface({
   // Show confirmation page if booking was successful
   if (confirmationData) {
     return (
-      <div className="max-w-5xl mx-auto bg-white dark:bg-gray-900 min-h-screen flex items-center justify-center p-8">
+      <div className="max-w-5xl mx-auto bg-white min-h-screen flex items-center justify-center p-8">
         <BookingConfirmation
           booking={confirmationData}
           onNewBooking={resetBookingFlow}
@@ -165,30 +176,37 @@ export default function BookingInterface({
     );
   }
 
-  // Show authentication form if user is not logged in
-  if (!user) {
-    return (
-      <div className="max-w-5xl mx-auto bg-white dark:bg-gray-900 min-h-screen flex items-center justify-center p-8">
-        <div className="w-full max-w-md space-y-6">
-          <div className="text-center space-y-4">
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-              Login Required
-            </h1>
-            <p className="text-gray-600 dark:text-gray-300">
-              Please login or create an account to book an appointment.
-            </p>
-          </div>
-          <UserAuth onAuthChange={setUser} />
-        </div>
-      </div>
-    );
-  }
-
-  // Show booking form if both date and time are selected
+  // Show booking form if both date and time are selected AND user is authenticated
   if (showBookingForm && selectedDate && selectedTime && eventType) {
-    // Authenticated booking requirement
+    // If user is not authenticated, show auth component
+    if (!user) {
+      return (
+        <div className="max-w-5xl mx-auto bg-white min-h-screen flex items-center justify-center p-8">
+          <div className="space-y-6 text-center">
+            <div>
+              <h2 className="text-2xl font-semibold text-gray-900 mb-2">
+                Almost there!
+              </h2>
+              <p className="text-gray-600 mb-6">
+                You've selected {eventType.title} on{" "}
+                {selectedDate.toLocaleDateString()} at {selectedTime}.
+              </p>
+            </div>
+            <UserAuth onAuthChange={setUser} />
+            <Button
+              variant="outline"
+              onClick={() => setShowBookingForm(false)}
+              className="mt-4"
+            >
+              ← Back to Calendar
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
     return (
-      <div className="max-w-5xl mx-auto bg-white dark:bg-gray-900 min-h-screen flex items-center justify-center p-8">
+      <div className="max-w-5xl mx-auto bg-white min-h-screen flex items-center justify-center p-8">
         <BookingForm
           selectedDate={selectedDate}
           selectedTime={selectedTime}
@@ -217,9 +235,9 @@ export default function BookingInterface({
 
         {/* Left side - toggleable sidebar */}
         <div
-          className={`${showSidebar ? "block" : "hidden"} md:${
+          className={`${
             showSidebar ? "block" : "hidden"
-          } w-full md:w-[340px] p-8 border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 transition-all duration-200`}
+          } md:block w-full md:w-[340px] p-8 border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 transition-all duration-200`}
         >
           <div className="space-y-8">
             {/* Profile section */}
@@ -236,9 +254,9 @@ export default function BookingInterface({
               <div>
                 <h2 className="font-medium text-gray-900 dark:text-white">
                   {organizer.name}
-                </h2>{" "}
+                </h2>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Prestataire de Service
+                  Service Provider
                 </p>
               </div>
             </div>
@@ -266,8 +284,7 @@ export default function BookingInterface({
                   <div className="flex items-center text-gray-600 dark:text-gray-300">
                     <Video className="w-4 h-4 mr-3 text-gray-400 dark:text-gray-500" />
                     <span className="text-sm">
-                      Les détails de la réservation seront fournis après
-                      confirmation
+                      Web conferencing details provided upon booking
                     </span>
                   </div>
                   <div className="flex items-center text-gray-600 dark:text-gray-300">
@@ -277,6 +294,9 @@ export default function BookingInterface({
                 </div>
               </div>
             )}
+
+            {/* Authentication Status Component */}
+            <AuthStatus />
           </div>
         </div>
 
@@ -293,12 +313,12 @@ export default function BookingInterface({
               {showSidebar ? (
                 <>
                   <ChevronLeft className="h-4 w-4 mr-2" />
-                  <span>Masquer les détails</span>
+                  <span>Hide details</span>
                 </>
               ) : (
                 <>
                   <ChevronRight className="h-4 w-4 mr-2" />
-                  <span>Afficher les détails</span>
+                  <span>Show details</span>
                 </>
               )}
             </Button>
@@ -349,8 +369,6 @@ export default function BookingInterface({
               month={selectedMonth}
               onMonthChange={setSelectedMonth}
               className="rounded-md border shadow-sm p-3"
-              weekStartsOn={1} // Monday as first day of week (European standard)
-              locale={fr} // French locale for days/months
               classNames={{
                 months: "space-y-4",
                 month: "space-y-4",
@@ -364,12 +382,12 @@ export default function BookingInterface({
                 table: "w-full border-collapse space-y-1",
                 head_row: "flex",
                 head_cell:
-                  "text-gray-500 dark:text-gray-400 rounded-md w-9 font-normal text-[0.8rem]",
+                  "text-gray-500 rounded-md w-9 font-normal text-[0.8rem]",
                 row: "flex w-full mt-2",
                 cell: "text-center text-sm p-0 relative [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
                 day: cn(
                   "h-9 w-9 p-0 font-normal aria-selected:opacity-100",
-                  "hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors",
+                  "hover:bg-gray-100 rounded-md transition-colors",
                   "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
                 ),
                 day_selected:
@@ -393,8 +411,7 @@ export default function BookingInterface({
           {selectedDate && (
             <div className="mt-6">
               <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-4">
-                Plages horaires disponibles pour{" "}
-                {selectedDate.toLocaleDateString("fr-FR", {
+                Available time slots for {selectedDate.toLocaleDateString("fr-FR", {
                   weekday: "long",
                   day: "numeric",
                   month: "long",
@@ -417,37 +434,20 @@ export default function BookingInterface({
                           className={cn(
                             "w-full justify-center py-2",
                             isBooked &&
-                              "opacity-50 cursor-not-allowed bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500"
+                              "opacity-50 cursor-not-allowed bg-gray-100 text-gray-400"
                           )}
-                          disabled={isBooked || isLoading || checkingDuplicate}
-                          onClick={async () => {
-                            if (!isBooked && selectedDate) {
-                              setCheckingDuplicate(true);
-                              try {
-                                // Check for duplicate before allowing selection
-                                const hasDuplicate = await checkForDuplicate(
-                                  timeString,
-                                  selectedDate
-                                );
-
-                                if (hasDuplicate) {
-                                  // Duplicate found - checkForDuplicate already shows toast
-                                  return;
-                                }
-
-                                // No duplicate - proceed with selection
-                                setSelectedTime(timeString);
-                                // Show booking form when time is selected
-                                setShowBookingForm(true);
-                              } finally {
-                                setCheckingDuplicate(false);
-                              }
+                          disabled={isBooked || isLoading}
+                          onClick={() => {
+                            if (!isBooked) {
+                              setSelectedTime(timeString);
+                              // Show booking form when time is selected
+                              setShowBookingForm(true);
                             }
                           }}
                         >
-                          {checkingDuplicate ? "Vérification..." : timeString}
+                          {timeString}
                           {isBooked && (
-                            <span className="ml-1 text-xs">(Réservé)</span>
+                            <span className="ml-1 text-xs">(Booked)</span>
                           )}
                         </Button>
                       );
@@ -456,12 +456,8 @@ export default function BookingInterface({
                 ) : (
                   <div className="col-span-3 text-center py-8 text-gray-500 dark:text-gray-400">
                     <Clock className="mx-auto h-12 w-12 text-gray-300 dark:text-gray-600 mb-4" />
-                    <p className="text-sm">
-                      Aucun créneau disponible pour cette date.
-                    </p>
-                    <p className="text-xs mt-2">
-                      Veuillez sélectionner une date différente.
-                    </p>
+                    <p className="text-sm">No available time slots for this date.</p>
+                    <p className="text-xs mt-2">Please select a different date.</p>
                   </div>
                 )}
               </div>
@@ -469,7 +465,7 @@ export default function BookingInterface({
                 <div className="text-center py-4">
                   <div className="inline-flex items-center text-sm text-gray-500 dark:text-gray-400">
                     <Clock className="animate-spin h-4 w-4 mr-2" />
-                    Chargement des créneaux disponibles...
+                    Loading available times...
                   </div>
                 </div>
               )}

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { BookingStore } from "@/lib/booking-store";
 import type {
   AvailabilityResponse,
   DateRange,
@@ -38,17 +39,38 @@ export async function GET(request: Request) {
     const availableSlots: AvailabilitySlot[] = [];
     const currentDate = new Date(startDate);
 
+    // Get booked slots for the date range
+    const dateKey = startDate.toISOString().split("T")[0];
+    const bookedTimes = await BookingStore.getBookedTimeSlotsForDate(
+      dateKey,
+      eventType.id
+    );
+
     while (currentDate < endDate) {
       // Skip weekends
       if (currentDate.getDay() !== 0 && currentDate.getDay() !== 6) {
-        // Working hours: 9 AM to 5 PM
-        for (let hour = 9; hour < 17; hour++) {
+        // Working hours: 8 AM to 5 PM (8:00 - 17:00)
+        for (let hour = 8; hour < 17; hour++) {
           // Create slots every eventType.length minutes
           for (let minute = 0; minute < 60; minute += 30) {
             const slotTime = new Date(currentDate);
             slotTime.setHours(hour, minute, 0, 0);
 
             // Skip slots that are in the past
+            if (slotTime <= new Date()) {
+              continue;
+            }
+
+            // Check if this slot is already booked
+            const timeString = slotTime.toLocaleTimeString("fr-FR", {
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: false,
+            });
+
+            if (bookedTimes.includes(timeString)) {
+              continue; // Skip booked slots
+            }
             const now = new Date();
             if (slotTime <= now) {
               continue;
@@ -90,7 +112,7 @@ export async function GET(request: Request) {
           userId: 1,
           eventTypeId: eventType.id,
           days: [1, 2, 3, 4, 5], // Monday to Friday
-          startTime: "09:00",
+          startTime: "08:00",
           endTime: "17:00",
         },
       ],
@@ -101,6 +123,8 @@ export async function GET(request: Request) {
         },
       ],
       availableSlots: availableSlots,
+      // Note: userBookings removed to reduce load during availability fetching
+      // Duplicate checking will happen during booking creation
     };
 
     return NextResponse.json(response);

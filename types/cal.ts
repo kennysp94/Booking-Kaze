@@ -158,4 +158,5 @@ export interface AvailabilityResponse {
   workingHours: Availability[];
   dateRanges: DateRange[];
   availableSlots: AvailabilitySlot[];
+  userBookings?: CalendarEvent[]; // User's existing bookings for the requested period
 }
