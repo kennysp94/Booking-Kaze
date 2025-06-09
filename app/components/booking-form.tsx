@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useScheduling } from "@/providers/scheduling-provider";
+import { useTimezone } from "@/providers/timezone-provider";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertCircle, CalendarIcon, ClockIcon, MapPinIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -35,6 +36,7 @@ export default function BookingForm({
   onCancel,
 }: BookingFormProps) {
   const { createBooking, isLoading } = useScheduling();
+  const { formatDateForTimezone, formatTimeForTimezone } = useTimezone();
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -171,14 +173,7 @@ export default function BookingForm({
         <div className="space-y-3 pt-4 border-t dark:border-t-gray-700">
           <div className="flex items-center gap-3 text-sm text-gray-700 dark:text-gray-300">
             <CalendarIcon className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-            <span>
-              {selectedDate.toLocaleDateString("fr-FR", {
-                weekday: "long",
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-              })}
-            </span>
+            <span>{formatDateForTimezone(selectedDate)}</span>
           </div>
           <div className="flex items-center gap-3 text-sm text-gray-700 dark:text-gray-300">
             <ClockIcon className="w-4 h-4 text-gray-500 dark:text-gray-400" />

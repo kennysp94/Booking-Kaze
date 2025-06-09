@@ -18,6 +18,8 @@ import {
 import Image from "next/image";
 import { useState, useEffect, useCallback } from "react";
 import { useScheduling } from "@/providers/scheduling-provider";
+import { useTimezone } from "@/providers/timezone-provider";
+import TimezoneSelector from "@/components/timezone-selector";
 import BookingForm from "./booking-form";
 import BookingConfirmation from "./booking-confirmation";
 import UserAuth from "./user-auth";
@@ -54,7 +56,14 @@ export default function BookingInterface({
     checkForDuplicate,
   } = useScheduling();
 
-  const [timeZone, setTimeZone] = useState<string>("");
+  const {
+    timezone,
+    setTimezone,
+    formatDateForTimezone,
+    formatTimeForTimezone,
+    formatDateTimeForTimezone,
+  } = useTimezone();
+
   const [mounted, setMounted] = useState(false);
   const [showBookingForm, setShowBookingForm] = useState(false);
   const [showSidebar, setShowSidebar] = useState(true);
@@ -67,7 +76,6 @@ export default function BookingInterface({
   // Only access browser APIs after mount
   useEffect(() => {
     setMounted(true);
-    setTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone);
   }, []);
 
   // Set default date and fetch initial availability (4 months in future for testing)
@@ -90,6 +98,13 @@ export default function BookingInterface({
       fetchAvailability(selectedDate);
     }
   }, [selectedDate, fetchAvailability]);
+
+  // Refetch availability when timezone changes to ensure proper time formatting
+  useEffect(() => {
+    if (selectedDate && timezone) {
+      fetchAvailability(selectedDate);
+    }
+  }, [timezone, selectedDate, fetchAvailability]);
 
   // Don't render date/time sensitive content until after mount
   if (!mounted) {
@@ -272,8 +287,19 @@ export default function BookingInterface({
                   </div>
                   <div className="flex items-center text-gray-600 dark:text-gray-300">
                     <Globe className="w-4 h-4 mr-3 text-gray-400 dark:text-gray-500" />
-                    <span className="text-sm">{timeZone}</span>
+                    <span className="text-sm">{timezone}</span>
                   </div>
+                </div>
+
+                {/* Timezone Selector */}
+                <div className="border-t pt-6">
+                  <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">
+                    Fuseau horaire
+                  </h3>
+                  <TimezoneSelector
+                    value={timezone}
+                    onValueChange={setTimezone}
+                  />
                 </div>
               </div>
             )}
@@ -394,12 +420,7 @@ export default function BookingInterface({
             <div className="mt-6">
               <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-4">
                 Plages horaires disponibles pour{" "}
-                {selectedDate.toLocaleDateString("fr-FR", {
-                  weekday: "long",
-                  day: "numeric",
-                  month: "long",
-                  year: "numeric",
-                })}
+                {selectedDate ? formatDateForTimezone(selectedDate) : ""}
               </h3>
               <div className="grid grid-cols-3 gap-2">
                 {getAvailableSlotsForDate(selectedDate).length > 0 ? (

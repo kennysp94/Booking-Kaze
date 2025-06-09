@@ -45,26 +45,44 @@ export async function GET(request: NextRequest) {
     const requestedDate = new Date(
       date || new Date().toISOString().split("T")[0]
     );
-    const mockSlots = [];
+    const mockSlots: Array<{
+      start: string;
+      end: string;
+      available: boolean;
+      technicianId: string;
+      serviceId: string;
+    }> = [];
 
-    // Generate slots from 8 AM to 5 PM, every 30 minutes
-    for (let hour = 8; hour < 17; hour++) {
-      for (let minute = 0; minute < 60; minute += 30) {
-        const slotStart = new Date(requestedDate);
-        slotStart.setHours(hour, minute, 0, 0);
+    // Generate slots from 8 AM to 5 PM, every 90 minutes (service duration)
+    // Using 24-hour format for European/French standard
+    const businessHours = [
+      { hour: 8, minute: 0 }, // 08:00
+      { hour: 9, minute: 30 }, // 09:30
+      { hour: 11, minute: 0 }, // 11:00
+      { hour: 12, minute: 30 }, // 12:30
+      { hour: 14, minute: 0 }, // 14:00
+      { hour: 15, minute: 30 }, // 15:30
+    ];
 
-        const slotEnd = new Date(slotStart);
-        slotEnd.setMinutes(slotStart.getMinutes() + 90); // 90-minute slots
+    businessHours.forEach(({ hour, minute }) => {
+      const slotStart = new Date(requestedDate);
+      slotStart.setHours(hour, minute, 0, 0);
 
-        mockSlots.push({
-          start: slotStart.toISOString(),
-          end: slotEnd.toISOString(),
-          available: Math.random() > 0.3, // 70% chance of being available
-          technicianId: technicianId || "tech1",
-          serviceId: serviceId || "1",
-        });
-      }
-    }
+      const slotEnd = new Date(slotStart);
+      slotEnd.setMinutes(slotStart.getMinutes() + 90); // 90-minute slots
+
+      // Only show slots that haven't passed yet
+      const now = new Date();
+      const isAvailable = slotStart > now && Math.random() > 0.2; // 80% chance of being available
+
+      mockSlots.push({
+        start: slotStart.toISOString(),
+        end: slotEnd.toISOString(),
+        available: isAvailable,
+        technicianId: technicianId || "tech1",
+        serviceId: serviceId || "1",
+      });
+    });
 
     return NextResponse.json({
       success: true,

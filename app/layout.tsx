@@ -2,12 +2,13 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { SchedulingProvider } from "@/providers/scheduling-provider";
+import { TimezoneProvider } from "@/providers/timezone-provider";
 import { Toaster } from "@/components/ui/sonner";
 import FetchPatchLoader from "@/components/fetch-patch-loader";
 
 export const metadata: Metadata = {
-  title: "Kaze Scheduling",
-  description: "Schedule your plumbing service with ease",
+  title: "Planification Kaze",
+  description: "Planifiez votre service de plomberie en toute simplicité",
 };
 
 export default function RootLayout({
@@ -16,7 +17,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="fr" suppressHydrationWarning>
       <body className="bg-background">
         <ThemeProvider
           attribute="class"
@@ -24,11 +25,13 @@ export default function RootLayout({
           enableSystem={false}
           disableTransitionOnChange
         >
-          <SchedulingProvider>
-            <FetchPatchLoader />
-            {children}
-            <Toaster />
-          </SchedulingProvider>
+          <TimezoneProvider>
+            <SchedulingProvider>
+              <FetchPatchLoader />
+              {children}
+              <Toaster />
+            </SchedulingProvider>
+          </TimezoneProvider>
         </ThemeProvider>
       </body>
     </html>

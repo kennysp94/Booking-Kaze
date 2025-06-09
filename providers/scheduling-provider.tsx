@@ -98,36 +98,33 @@ export function SchedulingProvider({
 
       setIsLoading(true);
       try {
-        const startDate = new Date(date);
-        startDate.setHours(0, 0, 0, 0);
+        // Format date for Kaze API (YYYY-MM-DD format)
+        const dateString = date.toISOString().split("T")[0];
 
-        const endDate = new Date(date);
-        endDate.setHours(23, 59, 59, 999);
-
-        // Fetch availability without user-specific data to reduce load
+        // Fetch availability from Kaze API
         const response = await authFetch(
-          `/api/cal/availability?start=${startDate.toISOString()}&end=${endDate.toISOString()}&eventTypeId=${
-            selectedEventType.id
-          }`
+          `/api/kaze/availability?date=${dateString}&serviceId=${selectedEventType.id}`
         );
 
         if (!response.ok) {
-          throw new Error("Failed to fetch availability");
+          throw new Error("Failed to fetch availability from Kaze API");
         }
 
-        const data: AvailabilityResponse = await response.json();
+        const data = await response.json();
 
-        // Transform availableSlots considering buffer times and user's existing bookings
-        if (!data.availableSlots) {
+        if (!data.success || !data.slots) {
           setAvailableSlots([]);
           return;
         }
 
-        const slots = data.availableSlots
-          .filter((slot) => {
-            const slotTime = new Date(slot.time);
+        // Transform Kaze API response to time slots
+        const slots = data.slots
+          .filter((slot: any) => {
+            const slotTime = new Date(slot.start);
             const now = new Date();
             const minimumNoticeMinutes = selectedEventType.minimumBookingNotice;
+
+            // Create slot key for tracking booked slots
             const slotKey = `${date.toDateString()}_${slotTime.toLocaleTimeString(
               "fr-FR",
               {
@@ -137,14 +134,17 @@ export function SchedulingProvider({
               }
             )}`;
 
-            // Filter out booked slots and slots too close to current time
+            // Filter available slots with minimum notice and exclude booked slots
             return (
+              slot.available &&
               slotTime.getTime() - now.getTime() >=
-                minimumNoticeMinutes * 60 * 1000 && !bookedSlots.has(slotKey) // Exclude already booked slots
+                minimumNoticeMinutes * 60 * 1000 &&
+              !bookedSlots.has(slotKey)
             );
           })
-          .map((slot) => {
-            const time = new Date(slot.time);
+          .map((slot: any) => {
+            const time = new Date(slot.start);
+            // Return in 24-hour format (French standard)
             return time.toLocaleTimeString("fr-FR", {
               hour: "2-digit",
               minute: "2-digit",
@@ -154,10 +154,12 @@ export function SchedulingProvider({
 
         setAvailableSlots(slots);
 
-        // Note: We don't load user bookings here to reduce load
-        // Duplicate checking will happen at booking time
+        // Log success for debugging
+        console.log(
+          `✅ Fetched ${slots.length} available slots from Kaze API for ${dateString}`
+        );
       } catch (error) {
-        console.error("Error fetching availability:", error);
+        console.error("Error fetching availability from Kaze API:", error);
         toast.error(
           "Impossible de récupérer les créneaux horaires disponibles"
         );
@@ -258,7 +260,7 @@ export function SchedulingProvider({
         eventTypeId: selectedEventType.id,
         eventTypeSlug: selectedEventType.slug,
         timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        language: "en",
+        language: "fr",
         user: user.email, // Use authenticated user's email
         responses: {
           email: user.email, // Use authenticated user's email

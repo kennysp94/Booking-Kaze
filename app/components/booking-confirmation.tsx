@@ -2,6 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { useTimezone } from "@/providers/timezone-provider";
 import {
   CheckCircle,
   Calendar,
@@ -45,6 +46,12 @@ export default function BookingConfirmation({
   booking,
   onNewBooking,
 }: BookingConfirmationProps) {
+  const {
+    formatDateTimeForTimezone,
+    formatDateForTimezone,
+    formatTimeForTimezone,
+  } = useTimezone();
+
   // Handle both old and new data structures
   const startTimeStr = booking.startTime || booking.start_time;
   const endTimeStr = booking.endTime || booking.end_time;
@@ -68,23 +75,6 @@ export default function BookingConfirmation({
 
   // Get location from either structure
   const location = booking.location || booking.job_address || "Location TBD";
-
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString("fr-FR", {
-      weekday: "long",
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
-  };
-
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString("fr-FR", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    });
-  };
 
   // Generate calendar event file (ICS format)
   const downloadCalendarEvent = () => {
@@ -169,10 +159,11 @@ export default function BookingConfirmation({
             <Calendar className="w-5 h-5 text-gray-500 dark:text-gray-400 mt-0.5" />
             <div>
               <p className="font-medium text-gray-900 dark:text-white">
-                {formatDate(startTime)}
+                {formatDateForTimezone(startTime)}
               </p>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                {formatTime(startTime)} - {formatTime(endTime)}
+                {formatTimeForTimezone(startTime)} -{" "}
+                {formatTimeForTimezone(endTime)}
               </p>
             </div>
           </div>
