@@ -20,6 +20,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useScheduling } from "@/providers/scheduling-provider";
 import { useTimezone } from "@/providers/timezone-provider";
 import TimezoneSelector from "@/components/timezone-selector";
+// import KazeApiNotice from "@/components/kaze-api-notice";
 import BookingForm from "./booking-form";
 import BookingConfirmation from "./booking-confirmation";
 import UserAuth from "./user-auth";
@@ -329,6 +330,9 @@ export default function BookingInterface({
               )}
             </Button>
           </div>
+
+          {/* Kaze API Information Notice */}
+          {/* <KazeApiNotice /> */}
 
           <div className="mb-8">
             <div className="flex items-center justify-between mb-4">

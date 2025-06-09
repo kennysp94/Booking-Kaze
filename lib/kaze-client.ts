@@ -3,7 +3,9 @@ export class KazeClient {
   private baseUrl: string;
   private token: string | null = null;
 
-  constructor(baseUrl = "https://api.kaze.com") {
+  constructor(
+    baseUrl = process.env.KAZE_API_BASE_URL || "https://app.kaze.so"
+  ) {
     this.baseUrl = baseUrl;
 
     // Note: We no longer need to authenticate explicitly in the client

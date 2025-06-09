@@ -4,8 +4,9 @@ import {
   getTokenDebugInfo,
   makeKazeApiRequest,
 } from "@/lib/kaze-token";
+import { serverBookingStorage } from "@/lib/server-booking-storage";
 
-// Create a new booking in Kaze using the job workflow endpoint
+// Create a new booking in Kaze using the job workflow endpoint AND store in local database
 export async function POST(request: NextRequest) {
   try {
     const bookingData = await request.json();
@@ -161,9 +162,24 @@ export async function POST(request: NextRequest) {
     console.log("=== SUCCESS: Kaze job created ===");
     console.log("Kaze response:", JSON.stringify(kazeResponse, null, 2));
 
+    // Store booking in server-side storage for availability tracking
+    const localBooking = serverBookingStorage.createBooking({
+      start: start_time,
+      end: end_time,
+      customerName: customer_name,
+      customerEmail: customer_email,
+      customerPhone: customer_phone,
+      serviceId: service_id || "1",
+      technicianId: technician_id || "default",
+      kazeJobId: kazeResponse.id || `booking_${Date.now()}`
+    });
+
+    console.log("✅ Booking stored in server storage:", localBooking.id);
+
     // Transform Kaze response to match expected booking format
     const booking = {
       id: kazeResponse.id || `booking_${Date.now()}`,
+      localId: localBooking.id, // Include local database ID
       start_time: start_time,
       end_time: end_time,
       status: "confirmed",

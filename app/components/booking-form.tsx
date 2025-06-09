@@ -306,13 +306,13 @@ export default function BookingForm({
             <Label htmlFor="notes" className="dark:text-gray-200">
               Notes supplémentaires
             </Label>
-            <Textarea
+            {/* <Textarea
               id="notes"
               value={formData.notes}
               onChange={(e) => handleInputChange("notes", e.target.value)}
               placeholder="Informations supplémentaires ou demandes spéciales..."
               rows={3}
-            />
+            /> */}
           </div>
 
           <div className="flex gap-3 pt-4">

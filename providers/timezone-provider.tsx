@@ -12,6 +12,7 @@ interface TimezoneContextType {
   timezone: string;
   setTimezone: (timezone: string) => void;
   formatDateForTimezone: (date: Date) => string;
+  formatDateEuropean: (date: Date) => string;
   formatTimeForTimezone: (date: Date) => string;
   formatDateTimeForTimezone: (date: Date) => string;
   getCurrentTimeInTimezone: () => string;
@@ -30,14 +31,33 @@ interface TimezoneProviderProps {
 export function TimezoneProvider({ children }: TimezoneProviderProps) {
   const [timezone, setTimezoneState] = useState<string>("Europe/Paris");
 
+  // Function to validate if a timezone is valid
+  const isValidTimezone = (tz: string): boolean => {
+    try {
+      new Date().toLocaleDateString("fr-FR", { timeZone: tz });
+      return true;
+    } catch (error) {
+      console.warn(`Invalid timezone detected: ${tz}`, error);
+      return false;
+    }
+  };
+
   // Initialize timezone from localStorage or detect user's timezone
   useEffect(() => {
     // Try to get saved timezone from localStorage
     const savedTimezone = localStorage.getItem("user-timezone");
 
-    if (savedTimezone) {
+    if (savedTimezone && isValidTimezone(savedTimezone)) {
       setTimezoneState(savedTimezone);
     } else {
+      // Clear invalid timezone from localStorage
+      if (savedTimezone && !isValidTimezone(savedTimezone)) {
+        localStorage.removeItem("user-timezone");
+        console.log(
+          `Cleared invalid timezone from localStorage: ${savedTimezone}`
+        );
+      }
+
       // Detect user's timezone
       const detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
@@ -45,7 +65,7 @@ export function TimezoneProvider({ children }: TimezoneProviderProps) {
       const supportedTimezones = [
         "Europe/Paris",
         "Europe/Brussels",
-        "Europe/Geneva",
+        "Europe/Zurich",
         "Europe/Luxembourg",
         "Europe/Monaco",
         "Europe/London",
@@ -87,29 +107,83 @@ export function TimezoneProvider({ children }: TimezoneProviderProps) {
 
   // Update localStorage when timezone changes
   const setTimezone = (newTimezone: string) => {
+    if (!isValidTimezone(newTimezone)) {
+      console.error(
+        `Invalid timezone provided: ${newTimezone}, defaulting to Europe/Paris`
+      );
+      setTimezoneState("Europe/Paris");
+      localStorage.setItem("user-timezone", "Europe/Paris");
+      return;
+    }
     setTimezoneState(newTimezone);
     localStorage.setItem("user-timezone", newTimezone);
   };
 
   // Format date for the selected timezone
   const formatDateForTimezone = (date: Date): string => {
-    return date.toLocaleDateString("fr-FR", {
-      timeZone: timezone,
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    });
+    try {
+      return date.toLocaleDateString("fr-FR", {
+        timeZone: timezone,
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      });
+    } catch (error) {
+      console.error(`Error formatting date for timezone ${timezone}:`, error);
+      // Fallback to Paris timezone
+      return date.toLocaleDateString("fr-FR", {
+        timeZone: "Europe/Paris",
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      });
+    }
   };
 
-  // Format time for the selected timezone (24-hour format)
+  // Format date in DD/MM/YYYY European format
+  const formatDateEuropean = (date: Date): string => {
+    try {
+      return date.toLocaleDateString("fr-FR", {
+        timeZone: timezone,
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      });
+    } catch (error) {
+      console.error(
+        `Error formatting European date for timezone ${timezone}:`,
+        error
+      );
+      return date.toLocaleDateString("fr-FR", {
+        timeZone: "Europe/Paris",
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      });
+    }
+  };
+
+  // Format time for the selected timezone (24-hour format - European standard)
   const formatTimeForTimezone = (date: Date): string => {
-    return date.toLocaleTimeString("fr-FR", {
-      timeZone: timezone,
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    });
+    try {
+      return date.toLocaleTimeString("fr-FR", {
+        timeZone: timezone,
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false, // 24-hour format is European standard
+      });
+    } catch (error) {
+      console.error(`Error formatting time for timezone ${timezone}:`, error);
+      // Fallback to Paris timezone
+      return date.toLocaleTimeString("fr-FR", {
+        timeZone: "Europe/Paris",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      });
+    }
   };
 
   // Format date and time for the selected timezone
@@ -124,35 +198,48 @@ export function TimezoneProvider({ children }: TimezoneProviderProps) {
 
   // Convert a date to user's selected timezone (for display)
   const convertToUserTimezone = (date: Date): Date => {
-    // Create a new date that represents the same moment in the user's timezone
-    const utcTime = date.getTime() + date.getTimezoneOffset() * 60000;
+    try {
+      // Create a new date that represents the same moment in the user's timezone
+      const utcTime = date.getTime() + date.getTimezoneOffset() * 60000;
 
-    // Get timezone offset for the selected timezone
-    const targetDate = new Date(utcTime);
-    const tempDate = new Date(
-      targetDate.toLocaleString("en-US", { timeZone: timezone })
-    );
-    const targetOffset = tempDate.getTime() - utcTime;
+      // Get timezone offset for the selected timezone
+      const targetDate = new Date(utcTime);
+      const tempDate = new Date(
+        targetDate.toLocaleString("en-US", { timeZone: timezone })
+      );
+      const targetOffset = tempDate.getTime() - utcTime;
 
-    return new Date(utcTime + targetOffset);
+      return new Date(utcTime + targetOffset);
+    } catch (error) {
+      console.error(`Error converting to timezone ${timezone}:`, error);
+      // Return original date as fallback
+      return date;
+    }
   };
 
   // Convert a date from user's selected timezone to UTC (for API calls)
   const convertFromUserTimezone = (date: Date): Date => {
-    // This assumes the input date is in the user's selected timezone
-    // and converts it to UTC for API storage
-    const tempDate = new Date(
-      date.toLocaleString("en-US", { timeZone: "UTC" })
-    );
-    const utcOffset = tempDate.getTime() - date.getTime();
+    try {
+      // This assumes the input date is in the user's selected timezone
+      // and converts it to UTC for API storage
+      const tempDate = new Date(
+        date.toLocaleString("en-US", { timeZone: "UTC" })
+      );
+      const utcOffset = tempDate.getTime() - date.getTime();
 
-    return new Date(date.getTime() + utcOffset);
+      return new Date(date.getTime() + utcOffset);
+    } catch (error) {
+      console.error(`Error converting from timezone ${timezone}:`, error);
+      // Return original date as fallback
+      return date;
+    }
   };
 
   const value: TimezoneContextType = {
     timezone,
     setTimezone,
     formatDateForTimezone,
+    formatDateEuropean,
     formatTimeForTimezone,
     formatDateTimeForTimezone,
     getCurrentTimeInTimezone,

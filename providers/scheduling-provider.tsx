@@ -18,6 +18,43 @@ import { DEFAULT_EVENT_TYPES } from "@/types/event-types";
 import { formatDateFrench, formatTimeFrench } from "@/lib/date-utils";
 import { getAuthToken, getStoredUser, authFetch } from "@/lib/client-auth";
 
+// Generate mock availability slots for demo purposes when Kaze API doesn't support availability
+function generateMockSlots(date: Date): string[] {
+  const mockSlots: string[] = [];
+
+  // Generate slots from 8 AM to 5 PM, every 90 minutes (service duration)
+  // Using 24-hour format for European/French standard
+  const businessHours = [
+    { hour: 8, minute: 0 }, // 08:00
+    { hour: 9, minute: 30 }, // 09:30
+    { hour: 11, minute: 0 }, // 11:00
+    { hour: 12, minute: 30 }, // 12:30
+    { hour: 14, minute: 0 }, // 14:00
+    { hour: 15, minute: 30 }, // 15:30
+  ];
+
+  businessHours.forEach(({ hour, minute }) => {
+    const slotStart = new Date(date);
+    slotStart.setHours(hour, minute, 0, 0);
+
+    // Only show slots that haven't passed yet
+    const now = new Date();
+    const isAvailable = slotStart > now && Math.random() > 0.2; // 80% chance of being available
+
+    if (isAvailable) {
+      // Return in 24-hour format (French standard)
+      const timeString = slotStart.toLocaleTimeString("fr-FR", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      });
+      mockSlots.push(timeString);
+    }
+  });
+
+  return mockSlots;
+}
+
 interface User {
   id: string;
   email: string;
@@ -106,16 +143,56 @@ export function SchedulingProvider({
           `/api/kaze/availability?date=${dateString}&serviceId=${selectedEventType.id}`
         );
 
-        if (!response.ok) {
-          throw new Error("Failed to fetch availability from Kaze API");
-        }
-
         const data = await response.json();
 
-        if (!data.success || !data.slots) {
+        if (!response.ok) {
+          // Handle specific error responses
+          console.error("Availability API error:", data);
+          toast.error(
+            `Erreur lors de la récupération des créneaux: ${
+              data.message || "Erreur inconnue"
+            }`
+          );
+
+          // Log detailed error information for debugging
+          console.log("📊 API Error Details:", {
+            status: response.status,
+            error: data.error,
+            message: data.message,
+          });
+
           setAvailableSlots([]);
           return;
         }
+
+        if (!data.success) {
+          console.error("API returned unsuccessful response:", data);
+          toast.error(
+            `Erreur de disponibilité: ${
+              data.message || data.error || "Réponse non réussie"
+            }`
+          );
+          setAvailableSlots([]);
+          return;
+        }
+
+        if (!data.slots || !Array.isArray(data.slots)) {
+          console.warn("API returned no slots or invalid slots format:", data);
+          toast.info("Aucun créneau disponible trouvé pour cette date");
+          setAvailableSlots([]);
+          return;
+        }
+
+        // Log successful API call
+        console.log(
+          `✅ Successfully fetched ${data.slots.length} slots from availability API`,
+          {
+            source: data.source,
+            total: data.total,
+            date: data.date,
+            businessHours: data.businessHours,
+          }
+        );
 
         // Transform Kaze API response to time slots
         const slots = data.slots
@@ -160,9 +237,28 @@ export function SchedulingProvider({
         );
       } catch (error) {
         console.error("Error fetching availability from Kaze API:", error);
-        toast.error(
-          "Impossible de récupérer les créneaux horaires disponibles"
-        );
+
+        // Provide more specific error messages
+        if (error instanceof Error) {
+          if (error.message.includes("Failed to fetch")) {
+            toast.error(
+              "Impossible de se connecter à l'API Kaze. Veuillez vérifier votre connexion réseau."
+            );
+          } else if (error.message.includes("not configured")) {
+            toast.error(
+              "Configuration API Kaze manquante. Veuillez contacter l'administrateur."
+            );
+          } else {
+            toast.error(
+              `Erreur lors de la récupération des créneaux: ${error.message}`
+            );
+          }
+        } else {
+          toast.error(
+            "Impossible de récupérer les créneaux horaires disponibles depuis l'API Kaze"
+          );
+        }
+
         setAvailableSlots([]);
       } finally {
         setIsLoading(false);

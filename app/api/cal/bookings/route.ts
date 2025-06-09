@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { BookingStore } from "@/lib/booking-store";
 import { AuthService } from "@/lib/auth";
+import { serverBookingStorage } from "@/lib/server-booking-storage";
 
 // Cal.com compatible booking endpoint that creates jobs in Kaze
 export async function POST(request: NextRequest) {
@@ -196,7 +197,19 @@ export async function POST(request: NextRequest) {
       kazeJobId: booking.kaze_job?.id || booking.id,
     });
 
-    console.log("Booking stored successfully:", storedBooking.id);
+    // Also store in server-side storage for availability checking
+    const serverBooking = serverBookingStorage.createBooking({
+      start: bookingData.start,
+      end: bookingData.end,
+      customerName,
+      customerEmail,
+      customerPhone,
+      serviceId: bookingData.eventTypeId?.toString() || "1",
+      technicianId: "default",
+      kazeJobId: booking.kaze_job?.id || booking.id,
+    });
+
+    console.log("Booking stored successfully:", storedBooking.id, "Server:", serverBooking.id);
 
     // Return Cal.com compatible response
     return NextResponse.json({

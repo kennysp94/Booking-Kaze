@@ -23,7 +23,11 @@ const TIMEZONE_OPTIONS = [
         label: "Bruxelles (CET/CEST)",
         offset: "+01:00",
       },
-      { value: "Europe/Geneva", label: "Genève (CET/CEST)", offset: "+01:00" },
+      {
+        value: "Europe/Zurich",
+        label: "Genève/Zurich (CET/CEST)",
+        offset: "+01:00",
+      },
       {
         value: "Europe/Luxembourg",
         label: "Luxembourg (CET/CEST)",

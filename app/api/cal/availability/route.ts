@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { BookingStore } from "@/lib/booking-store";
+import { serverBookingStorage } from "@/lib/server-booking-storage";
 import type {
   AvailabilityResponse,
   DateRange,
@@ -61,7 +62,7 @@ export async function GET(request: Request) {
               continue;
             }
 
-            // Check if this slot is already booked
+            // Check if this slot is already booked (both BookingStore and server storage)
             const timeString = slotTime.toLocaleTimeString("fr-FR", {
               hour: "2-digit",
               minute: "2-digit",
@@ -69,7 +70,19 @@ export async function GET(request: Request) {
             });
 
             if (bookedTimes.includes(timeString)) {
-              continue; // Skip booked slots
+              continue; // Skip booked slots from BookingStore
+            }
+
+            // Also check server-side storage for conflicts
+            const slotEnd = new Date(slotTime.getTime() + 30 * 60 * 1000); // 30-minute slots
+            const isServerBooked = !serverBookingStorage.isSlotAvailable(
+              slotTime,
+              slotEnd,
+              "default"
+            );
+
+            if (isServerBooked) {
+              continue; // Skip booked slots from server storage
             }
             const now = new Date();
             if (slotTime <= now) {

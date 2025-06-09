@@ -1,0 +1,38 @@
+[
+  {
+    "id": "mbplbzeofblr4kxwn",
+    "start": "2025-06-10T08:30:00Z",
+    "end": "2025-06-10T10:00:00Z",
+    "customerName": "Test Customer",
+    "customerEmail": "test@example.com",
+    "serviceId": "service1",
+    "technicianId": "tech1",
+    "status": "confirmed",
+    "createdAt": "2025-06-09T21:15:01.248Z",
+    "kazeJobId": "1341fe29-a5f8-4b34-b06d-43d0b79d9452"
+  },
+  {
+    "id": "mbplfdvkiqqo7w7f0",
+    "start": "2025-06-10T13:00:00Z",
+    "end": "2025-06-10T13:30:00Z",
+    "customerName": "Cal.com Test Customer",
+    "customerEmail": "caltest@example.com",
+    "serviceId": "1",
+    "technicianId": "default",
+    "status": "confirmed",
+    "createdAt": "2025-06-09T21:17:39.968Z",
+    "kazeJobId": "b0844e97-3520-44f9-8490-4e68192c01b4"
+  },
+  {
+    "id": "mbplfdvshsade4zdd",
+    "start": "2025-06-10T13:00:00Z",
+    "end": "2025-06-10T13:30:00Z",
+    "customerName": "Cal.com Test Customer",
+    "customerEmail": "caltest@example.com",
+    "serviceId": "1",
+    "technicianId": "default",
+    "status": "confirmed",
+    "createdAt": "2025-06-09T21:17:39.976Z",
+    "kazeJobId": "b0844e97-3520-44f9-8490-4e68192c01b4"
+  }
+]

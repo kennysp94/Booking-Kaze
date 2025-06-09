@@ -1,7 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { getCleanKazeToken, getKazeApiHeaders } from "@/lib/kaze-token";
+import { availabilityService } from "@/lib/availability-service";
+import { databaseAvailability } from "@/lib/database-availability";
 
-// Fetch available time slots from Kaze API
+// Fetch available time slots using the real availability service
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -9,91 +10,79 @@ export async function GET(request: NextRequest) {
     const serviceId = searchParams.get("serviceId");
     const technicianId = searchParams.get("technicianId");
 
-    console.log("🔍 Fetching availability from Kaze API...");
+    console.log("🔍 Fetching availability using new availability service...");
 
-    // Use server-side KAZE_API_TOKEN (not client-side authorization)
-    const { token, issues } = getCleanKazeToken();
-
-    if (!token) {
-      console.log("❌ No Kaze API token found");
+    if (!date) {
       return NextResponse.json(
         {
           success: false,
-          error: "Kaze API token not configured",
+          error: "Date parameter is required",
         },
-        { status: 500 }
+        { status: 400 }
       );
     }
 
-    if (issues.length > 0) {
-      console.warn("⚠️ Kaze API token issues:", issues);
-    }
+    // Use the real availability service
+    const availabilityData = await availabilityService.getAvailabilityForDate(
+      date,
+      serviceId || "1",
+      technicianId || "default"
+    );
 
-    // Build query parameters for Kaze API
-    const params = new URLSearchParams();
-    if (date) params.append("date", date);
-    if (serviceId) params.append("service_id", serviceId);
-    if (technicianId) params.append("technician_id", technicianId);
-
-    // Note: The actual Kaze API doesn't have an /availability endpoint
-    // For now, return mock data until we get the correct endpoint
+    // Filter out slots that conflict with existing bookings in our database
+    const existingBookings = databaseAvailability.getBookingsForDate(
+      date,
+      technicianId || undefined
+    );
     console.log(
-      "📅 Returning mock availability data (Kaze /availability endpoint not available)"
+      `📅 Found ${existingBookings.length} existing bookings for ${date}`
     );
 
-    // Generate mock time slots for the requested date
-    const requestedDate = new Date(
-      date || new Date().toISOString().split("T")[0]
+    const availableSlots = availabilityData.slots
+      .filter((slot) => {
+        if (!slot.available) return false;
+
+        // Check against local database bookings
+        const slotStart = new Date(slot.start);
+        const slotEnd = new Date(slot.end);
+
+        const hasConflict = !databaseAvailability.isSlotAvailable(
+          slotStart,
+          slotEnd,
+          slot.technicianId || "default"
+        );
+
+        return !hasConflict;
+      })
+      .map((slot) => ({
+        start: slot.start,
+        end: slot.end,
+        available: slot.available,
+        technicianId: slot.technicianId,
+        serviceId: slot.serviceId,
+      }));
+
+    console.log(
+      `✅ Generated ${availableSlots.length} available slots for ${date}`
     );
-    const mockSlots: Array<{
-      start: string;
-      end: string;
-      available: boolean;
-      technicianId: string;
-      serviceId: string;
-    }> = [];
-
-    // Generate slots from 8 AM to 5 PM, every 90 minutes (service duration)
-    // Using 24-hour format for European/French standard
-    const businessHours = [
-      { hour: 8, minute: 0 }, // 08:00
-      { hour: 9, minute: 30 }, // 09:30
-      { hour: 11, minute: 0 }, // 11:00
-      { hour: 12, minute: 30 }, // 12:30
-      { hour: 14, minute: 0 }, // 14:00
-      { hour: 15, minute: 30 }, // 15:30
-    ];
-
-    businessHours.forEach(({ hour, minute }) => {
-      const slotStart = new Date(requestedDate);
-      slotStart.setHours(hour, minute, 0, 0);
-
-      const slotEnd = new Date(slotStart);
-      slotEnd.setMinutes(slotStart.getMinutes() + 90); // 90-minute slots
-
-      // Only show slots that haven't passed yet
-      const now = new Date();
-      const isAvailable = slotStart > now && Math.random() > 0.2; // 80% chance of being available
-
-      mockSlots.push({
-        start: slotStart.toISOString(),
-        end: slotEnd.toISOString(),
-        available: isAvailable,
-        technicianId: technicianId || "tech1",
-        serviceId: serviceId || "1",
-      });
-    });
 
     return NextResponse.json({
       success: true,
-      slots: mockSlots,
+      source: "availability-service",
+      slots: availableSlots,
       date: date,
-      total: mockSlots.length,
+      total: availableSlots.length,
+      businessHours: availabilityData.businessHours,
+      note: "Using real availability service with database conflict checking",
     });
   } catch (error) {
     console.error("Availability fetch error:", error);
     return NextResponse.json(
-      { success: false, error: "Failed to fetch availability" },
+      {
+        success: false,
+        error: "Failed to fetch availability",
+        message: error instanceof Error ? error.message : "Unknown error",
+      },
       { status: 500 }
     );
   }
