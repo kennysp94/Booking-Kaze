@@ -4,7 +4,7 @@
  * implements a proper availability system with database storage
  */
 
-import { serverBookingStorage } from './server-booking-storage';
+import { serverBookingStorage } from "./server-booking-storage";
 
 interface TimeSlot {
   start: string;
@@ -27,8 +27,8 @@ interface AvailabilityResponse {
 
 export class AvailabilityService {
   private businessStart = "08:00"; // 8:00 AM French time
-  private businessEnd = "17:00";   // 5:00 PM French time
-  private slotDuration = 90; // 90 minutes per slot
+  private businessEnd = "17:00"; // 5:00 PM French time
+  private slotDuration = 30; // 30 minutes per slot
   private timezone = "Europe/Paris";
 
   /**
@@ -46,35 +46,39 @@ export class AvailabilityService {
     // Generate slots from 8:00 to 17:00 (business hours)
     const startHour = 8;
     const endHour = 17;
-    
-    for (let hour = startHour; hour < endHour; hour += 1.5) {
+
+    for (let hour = startHour; hour < endHour; hour += 0.5) {
       const wholeHour = Math.floor(hour);
       const minutes = hour % 1 === 0.5 ? 30 : 0;
-      
+
       const slotStart = new Date(targetDate);
       slotStart.setHours(wholeHour, minutes, 0, 0);
-      
+
       const slotEnd = new Date(slotStart);
       slotEnd.setMinutes(slotStart.getMinutes() + this.slotDuration);
-      
+
       // Don't include slots that go beyond business hours
       if (slotEnd.getHours() > endHour) {
         break;
       }
-      
+
       // Only show future slots
       const now = new Date();
       const isInFuture = slotStart > now;
-      
+
       // Check if slot is already booked (simplified for demo)
-      const isBooked = await this.isSlotBooked(slotStart, slotEnd, technicianId);
-      
+      const isBooked = await this.isSlotBooked(
+        slotStart,
+        slotEnd,
+        technicianId
+      );
+
       slots.push({
         start: slotStart.toISOString(),
         end: slotEnd.toISOString(),
         available: isInFuture && !isBooked,
         technicianId: technicianId || "default",
-        serviceId: serviceId || "1"
+        serviceId: serviceId || "1",
       });
     }
 
@@ -85,8 +89,8 @@ export class AvailabilityService {
       businessHours: {
         start: this.businessStart,
         end: this.businessEnd,
-        timezone: this.timezone
-      }
+        timezone: this.timezone,
+      },
     };
   }
 
@@ -104,13 +108,13 @@ export class AvailabilityService {
       const isAvailable = serverBookingStorage.isSlotAvailable(
         start,
         end,
-        technicianId || 'default'
+        technicianId || "default"
       );
-      
+
       // Return true if booked (opposite of available)
       return !isAvailable;
     } catch (error) {
-      console.error('Error checking slot conflicts:', error);
+      console.error("Error checking slot conflicts:", error);
       // If database check fails, assume not booked but log the error
       return false;
     }
@@ -135,8 +139,14 @@ export class AvailabilityService {
     // 2. Create booking record in database
     // 3. Send to Kaze API via job_workflows
     // 4. Return success/failure
-    
-    console.log("Booking slot:", { start, end, customerInfo, serviceId, technicianId });
+
+    console.log("Booking slot:", {
+      start,
+      end,
+      customerInfo,
+      serviceId,
+      technicianId,
+    });
     return true;
   }
 
@@ -147,7 +157,7 @@ export class AvailabilityService {
     return {
       start: this.businessStart,
       end: this.businessEnd,
-      timezone: this.timezone
+      timezone: this.timezone,
     };
   }
 }

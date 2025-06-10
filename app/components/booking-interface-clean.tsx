@@ -17,6 +17,7 @@ import Image from "next/image";
 import { useState, useEffect, useCallback } from "react";
 import { useScheduling } from "@/providers/scheduling-provider";
 import { useTimezone } from "@/providers/timezone-provider";
+import TimezoneSelector from "@/components/timezone-selector";
 import BookingForm from "./booking-form";
 import BookingConfirmation from "./booking-confirmation";
 import UserAuth from "./user-auth";
@@ -53,7 +54,13 @@ export default function BookingInterface({
     checkForDuplicate,
   } = useScheduling();
 
-  const { timezone, formatDateForTimezone } = useTimezone();
+  const {
+    timezone,
+    setTimezone,
+    formatDateForTimezone,
+    formatTimeForTimezone,
+    formatDateTimeForTimezone,
+  } = useTimezone();
 
   const [mounted, setMounted] = useState(false);
   const [showBookingForm, setShowBookingForm] = useState(false);
@@ -180,7 +187,7 @@ export default function BookingInterface({
   return (
     <div className="max-w-4xl mx-auto bg-white dark:bg-gray-900 min-h-screen">
       <div className="p-8">
-        {/* Header with event info and timezone */}
+        {/* Header with event info and timezone selector */}
         <div className="mb-8 space-y-6">
           {/* Profile and event section */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
@@ -204,11 +211,11 @@ export default function BookingInterface({
               </div>
             </div>
 
-            {/* Fixed timezone display */}
+            {/* Timezone selector in header */}
             <div className="flex items-center gap-3">
               <Globe className="w-5 h-5 text-gray-400" />
               <span className="text-sm text-gray-600 dark:text-gray-400">
-                Europe/Paris (France)
+                Europe/Paris
               </span>
             </div>
           </div>
@@ -237,7 +244,7 @@ export default function BookingInterface({
           )}
         </div>
 
-        {/* Calendar Section */}
+        {/* Calendar and Time Slots Section */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
