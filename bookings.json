@@ -34,5 +34,44 @@
     "status": "confirmed",
     "createdAt": "2025-06-09T21:17:39.976Z",
     "kazeJobId": "b0844e97-3520-44f9-8490-4e68192c01b4"
+  },
+  {
+    "id": "mbvx7056o9xvvnfhj",
+    "start": "2025-06-20T08:00:00.000Z",
+    "end": "2025-06-20T08:30:00.000Z",
+    "customerName": "Test Customer",
+    "customerEmail": "test@example.com",
+    "customerPhone": "+33123456789",
+    "serviceId": "1",
+    "technicianId": "default",
+    "status": "confirmed",
+    "createdAt": "2025-06-14T07:33:41.370Z",
+    "kazeJobId": "71847ed9-d00d-45e5-b925-ffb345317356"
+  },
+  {
+    "id": "mbvx9gmuqr5f6snq7",
+    "start": "2025-06-20T08:00:00.000Z",
+    "end": "2025-06-20T08:30:00.000Z",
+    "customerName": "Another Customer",
+    "customerEmail": "another@example.com",
+    "customerPhone": "+33987654321",
+    "serviceId": "1",
+    "technicianId": "default",
+    "status": "confirmed",
+    "createdAt": "2025-06-14T07:35:36.054Z",
+    "kazeJobId": "0ed808ec-f69e-4d32-8a6c-1eb5153c1bd1"
+  },
+  {
+    "id": "mbvxm0bf6uz8ofrxu",
+    "start": "2025-06-20T08:00:00.000Z",
+    "end": "2025-06-20T08:30:00.000Z",
+    "customerName": "Third Customer",
+    "customerEmail": "third@example.com",
+    "customerPhone": "+33555666777",
+    "serviceId": "1",
+    "technicianId": "default",
+    "status": "confirmed",
+    "createdAt": "2025-06-14T07:45:21.435Z",
+    "kazeJobId": "6e2139e1-9309-402e-8694-8870e25ed46b"
   }
 ]

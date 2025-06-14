@@ -5,6 +5,7 @@ import {
   makeKazeApiRequest,
 } from "@/lib/kaze-token";
 import { serverBookingStorage } from "@/lib/server-booking-storage";
+import { kazeRealAvailabilityService } from "@/lib/kaze-real-availability";
 
 // Create a new booking in Kaze using the job workflow endpoint AND store in local database
 export async function POST(request: NextRequest) {
@@ -63,6 +64,70 @@ export async function POST(request: NextRequest) {
             "Missing required booking fields (start_time, customer_email, customer_name)",
         },
         { status: 400 }
+      );
+    }
+
+    // ✅ NEW: Validate availability using real Kaze API data
+    console.log("🔍 Validating slot availability with real Kaze data...");
+
+    const bookingStartTime = new Date(start_time);
+    const bookingEndTime = end_time
+      ? new Date(end_time)
+      : new Date(bookingStartTime.getTime() + 30 * 60 * 1000); // Default 30min if no end time
+    const bookingDate = bookingStartTime.toISOString().split("T")[0]; // YYYY-MM-DD
+
+    try {
+      // Get real availability for the booking date
+      const availabilityData =
+        await kazeRealAvailabilityService.getRealAvailabilityForDate(
+          bookingDate,
+          technician_id
+        );
+
+      // Find the specific slot that matches the booking time
+      const requestedSlot = availabilityData.slots.find((slot) => {
+        const slotStart = new Date(slot.start);
+        const slotEnd = new Date(slot.end);
+
+        // Check if booking time falls within this slot
+        return bookingStartTime >= slotStart && bookingStartTime < slotEnd;
+      });
+
+      if (!requestedSlot) {
+        return NextResponse.json(
+          {
+            error:
+              "The requested time slot is outside business hours (8:00-17:00 France time)",
+            businessHours: availabilityData.businessHours,
+          },
+          { status: 400 }
+        );
+      }
+
+      if (!requestedSlot.available) {
+        return NextResponse.json(
+          {
+            error: "The requested time slot is no longer available",
+            conflictReason: requestedSlot.conflictingJob
+              ? `Conflicts with existing Kaze job ${requestedSlot.conflictingJob.id}`
+              : "Slot is already booked",
+          },
+          { status: 409 }
+        );
+      }
+
+      console.log("✅ Slot availability confirmed - proceeding with booking");
+    } catch (availabilityError) {
+      console.error("❌ Availability check failed:", availabilityError);
+      return NextResponse.json(
+        {
+          error: "Unable to verify slot availability. Please try again.",
+          details:
+            availabilityError instanceof Error
+              ? availabilityError.message
+              : String(availabilityError),
+        },
+        { status: 500 }
       );
     }
 
@@ -163,15 +228,20 @@ export async function POST(request: NextRequest) {
     console.log("Kaze response:", JSON.stringify(kazeResponse, null, 2));
 
     // Store booking in server-side storage for availability tracking
+    // Ensure we have an end time (default to 30 minutes if not provided)
+    const calculatedEndTime =
+      end_time ||
+      new Date(bookingStartTime.getTime() + 30 * 60 * 1000).toISOString();
+
     const localBooking = serverBookingStorage.createBooking({
       start: start_time,
-      end: end_time,
+      end: calculatedEndTime,
       customerName: customer_name,
       customerEmail: customer_email,
       customerPhone: customer_phone,
       serviceId: service_id || "1",
       technicianId: technician_id || "default",
-      kazeJobId: kazeResponse.id || `booking_${Date.now()}`
+      kazeJobId: kazeResponse.id || `booking_${Date.now()}`,
     });
 
     console.log("✅ Booking stored in server storage:", localBooking.id);

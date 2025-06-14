@@ -28,8 +28,7 @@ export async function GET(request: NextRequest) {
         technicianId || undefined
       );
 
-    // ALWAYS check against our local server bookings for conflicts
-    // This ensures conflicts are detected even if Kaze API fails
+    // Also check against our local server bookings for additional conflicts
     const localBookings = serverBookingStorage.getBookingsForDate(
       date,
       technicianId || undefined
@@ -39,34 +38,23 @@ export async function GET(request: NextRequest) {
       `📅 Found ${localBookings.length} local bookings + ${realAvailabilityData.kazeJobs.length} Kaze jobs for ${date}`
     );
 
-    // Filter out slots that conflict with local bookings
-    // This is critical for preventing double-bookings when Kaze API fails
+    // Filter out slots that conflict with local bookings as well
     const finalAvailableSlots = realAvailabilityData.slots.map((slot) => {
-      // Start with the slot's current availability status
-      let slotAvailable = slot.available;
+      if (!slot.available) return slot;
 
-      // Always check against local server bookings regardless of Kaze API status
-      if (slotAvailable) {
-        const slotStart = new Date(slot.start);
-        const slotEnd = new Date(slot.end);
+      // Check against local server bookings
+      const slotStart = new Date(slot.start);
+      const slotEnd = new Date(slot.end);
 
-        const hasLocalConflict = !serverBookingStorage.isSlotAvailable(
-          slotStart,
-          slotEnd,
-          technicianId || "default"
-        );
-
-        if (hasLocalConflict) {
-          slotAvailable = false;
-          console.log(
-            `🚫 Slot ${slot.start} blocked by local booking conflict`
-          );
-        }
-      }
+      const hasLocalConflict = !serverBookingStorage.isSlotAvailable(
+        slotStart,
+        slotEnd,
+        technicianId || "default"
+      );
 
       return {
         ...slot,
-        available: slotAvailable,
+        available: slot.available && !hasLocalConflict,
       };
     });
 

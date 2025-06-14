@@ -68,16 +68,15 @@ export default function BookingInterface({
     setMounted(true);
   }, []);
 
-  // Set default date and fetch initial availability (4 months in future for testing)
+  // Set default date and fetch initial availability
   useEffect(() => {
     if (!selectedDate) {
       const now = new Date();
-      // Set default date to 4 months in the future for safe testing
-      const defaultDate = new Date(now.getFullYear(), now.getMonth() + 4, 15);
+      // Set default to a reasonable future date (1 month ahead, 15th of month)
+      const defaultDate = new Date(now.getFullYear(), now.getMonth() + 1, 15);
       setSelectedDate(defaultDate);
-      setSelectedMonth(
-        new Date(defaultDate.getFullYear(), defaultDate.getMonth(), 1)
-      );
+      // Ensure calendar month matches the selected date
+      setSelectedMonth(new Date(defaultDate.getFullYear(), defaultDate.getMonth(), 1));
       fetchAvailability(defaultDate);
     }
   }, [selectedDate, setSelectedDate, fetchAvailability]);

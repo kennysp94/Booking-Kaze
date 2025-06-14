@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { BookingStore } from "@/lib/booking-store";
 import { AuthService } from "@/lib/auth";
 import { serverBookingStorage } from "@/lib/server-booking-storage";
+import { kazeRealAvailabilityService } from "@/lib/kaze-real-availability";
 
 // Cal.com compatible booking endpoint that creates jobs in Kaze
 export async function POST(request: NextRequest) {
@@ -75,8 +76,11 @@ export async function POST(request: NextRequest) {
       customerEmail
     );
 
-    // Extract date and time for duplicate checking
+    // Extract date and time for availability checking
     const startTime = new Date(bookingData.start);
+    const endTime = bookingData.end
+      ? new Date(bookingData.end)
+      : new Date(startTime.getTime() + 30 * 60 * 1000);
     const date = startTime.toISOString().split("T")[0]; // YYYY-MM-DD
 
     // Use the same time format as the frontend (24-hour format HH:MM)
@@ -86,27 +90,72 @@ export async function POST(request: NextRequest) {
       hour12: false,
     });
 
-    // Check if this exact slot is already booked by anyone
-    const slotCheck = await BookingStore.isSlotBooked(
-      date,
-      time,
-      bookingData.eventTypeId
-    );
+    // ✅ NEW: Check availability using real Kaze API data instead of mock data
+    console.log("🔍 Validating slot availability with real Kaze data...");
 
-    if (slotCheck.isBooked) {
+    try {
+      // Get real availability for the booking date
+      const availabilityData =
+        await kazeRealAvailabilityService.getRealAvailabilityForDate(
+          date,
+          bookingData.technicianId
+        );
+
+      // Find the specific slot that matches the booking time
+      const requestedSlot = availabilityData.slots.find((slot) => {
+        const slotStart = new Date(slot.start);
+        const slotEnd = new Date(slot.end);
+
+        // Check if booking time falls within this slot
+        return startTime >= slotStart && startTime < slotEnd;
+      });
+
+      if (!requestedSlot) {
+        return NextResponse.json(
+          {
+            status: "ERROR",
+            message:
+              "The requested time slot is outside business hours (8:00-17:00 France time)",
+            code: "OUTSIDE_BUSINESS_HOURS",
+            businessHours: availabilityData.businessHours,
+          },
+          { status: 400 }
+        );
+      }
+
+      if (!requestedSlot.available) {
+        return NextResponse.json(
+          {
+            status: "ERROR",
+            message:
+              "This time slot is no longer available. Please select a different time.",
+            code: "SLOT_UNAVAILABLE",
+            conflictReason: requestedSlot.conflictingJob
+              ? `Conflicts with existing Kaze job ${requestedSlot.conflictingJob.id}`
+              : "Slot is already booked",
+          },
+          { status: 409 }
+        );
+      }
+
+      console.log("✅ Real availability confirmed - proceeding with booking");
+    } catch (availabilityError) {
+      console.error("❌ Availability check failed:", availabilityError);
       return NextResponse.json(
         {
           status: "ERROR",
-          message:
-            "This time slot is no longer available. Please select a different time.",
-          code: "SLOT_UNAVAILABLE",
-          bookedBy: slotCheck.booking?.customerName,
+          message: "Unable to verify slot availability. Please try again.",
+          code: "AVAILABILITY_CHECK_FAILED",
+          details:
+            availabilityError instanceof Error
+              ? availabilityError.message
+              : String(availabilityError),
         },
-        { status: 409 }
+        { status: 500 }
       );
     }
 
-    // Check for duplicate booking by the same user (authenticated users only)
+    // Keep existing duplicate checking for authenticated users
     if (authenticatedUser && customerEmail) {
       const existingUserBookings = await BookingStore.findUserBookingsByEmail(
         customerEmail,
@@ -209,7 +258,12 @@ export async function POST(request: NextRequest) {
       kazeJobId: booking.kaze_job?.id || booking.id,
     });
 
-    console.log("Booking stored successfully:", storedBooking.id, "Server:", serverBooking.id);
+    console.log(
+      "Booking stored successfully:",
+      storedBooking.id,
+      "Server:",
+      serverBooking.id
+    );
 
     // Return Cal.com compatible response
     return NextResponse.json({

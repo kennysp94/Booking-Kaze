@@ -128,18 +128,15 @@ export function SchedulingProvider({
         return;
       }
 
-      if (!user) {
-        toast.error("Please login to view availability");
-        return;
-      }
-
+      // Remove authentication requirement for viewing availability
+      // Availability should be publicly viewable
       setIsLoading(true);
       try {
         // Format date for Kaze API (YYYY-MM-DD format)
         const dateString = date.toISOString().split("T")[0];
 
-        // Fetch availability from Kaze API
-        const response = await authFetch(
+        // Fetch availability from Kaze API (no auth required for viewing availability)
+        const response = await fetch(
           `/api/kaze/availability?date=${dateString}&serviceId=${selectedEventType.id}`
         );
 
@@ -264,7 +261,7 @@ export function SchedulingProvider({
         setIsLoading(false);
       }
     },
-    [selectedEventType, bookedSlots, user]
+    [selectedEventType, bookedSlots] // Removed user dependency
   );
 
   // Check for duplicate bookings when user selects a time slot
