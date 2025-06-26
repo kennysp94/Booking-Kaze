@@ -1,9 +1,8 @@
 {
   "version": 2,
-  "builds": [{ "src": "next.config.mjs", "use": "@vercel/next" }],
+  "builds": [{ "src": "package.json", "use": "@vercel/next" }],
   "env": {
     "KAZE_API_TOKEN": "QGbk9cNeImFzu2GGhk1LfFbadzxxX19tY150VJTm5iisuP8zUeYswxHUDS2SajrxHdiHs4ZjA27BWGUJetuyBPfJZ0MUxzRhdkwaZVzXbMPk03Htlt379MXY1j9cPEF9",
     "KAZE_API_BASE_URL": "https://app.kaze.so"
-  },
-  "routes": [{ "src": "/(.*)", "dest": "/$1" }]
+  }
 }
